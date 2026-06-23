@@ -33,14 +33,36 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <!-- Branded loader shown while Flutter boots (canvaskit/main.dart.js download),
+       removed on the first rendered frame so the wait never looks like a blank page. -->
+  <style>
+    #sk-loading {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(180deg, #EDE4FB 0%, #FCF4FF 100%);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    #sk-loading img { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 10px 28px rgba(109,78,168,.25); }
+    #sk-loading .sk-spin {
+      margin-top: 22px; width: 40px; height: 40px;
+      border: 5px solid #E4D8F7; border-top-color: #6D4EA8; border-radius: 50%;
+      animation: sk-rot .9s linear infinite;
+    }
+    #sk-loading p { margin-top: 16px; color: #6B7280; font-weight: 600; font-size: 15px; }
+    @keyframes sk-rot { to { transform: rotate(360deg); } }
+  </style>
+  <div id="sk-loading">
+    <img src="favicon.png" alt="Sekouli" />
+    <div class="sk-spin"></div>
+    <p>Chargement du quiz du jour…</p>
+  </div>
+  <script>
+    // Flutter fires this on window once the first frame is painted.
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('sk-loading');
+      if (el) { el.style.transition = 'opacity .25s'; el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 250); }
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
