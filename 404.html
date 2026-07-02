@@ -1,6 +1,68 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8">
-<meta http-equiv="refresh" content="0; url=/daily/">
-<link rel="canonical" href="https://game.sekouli.com/daily/">
-<title>Sekouli</title>
-<script>location.replace('/daily/' + location.search + location.hash);</script>
-</head><body>Redirection vers <a href="/daily/">le quiz du jour</a>…</body></html>
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/daily/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Sekouli — l'énigme de maths du jour pour les CE1.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Sekouli">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Sekouli</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <!-- Branded loader shown while Flutter boots (canvaskit/main.dart.js download),
+       removed on the first rendered frame so the wait never looks like a blank page. -->
+  <style>
+    #sk-loading {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(180deg, #EDE4FB 0%, #FCF4FF 100%);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    #sk-loading img { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 10px 28px rgba(109,78,168,.25); }
+    #sk-loading .sk-spin {
+      margin-top: 22px; width: 40px; height: 40px;
+      border: 5px solid #E4D8F7; border-top-color: #6D4EA8; border-radius: 50%;
+      animation: sk-rot .9s linear infinite;
+    }
+    #sk-loading p { margin-top: 16px; color: #6B7280; font-weight: 600; font-size: 15px; }
+    @keyframes sk-rot { to { transform: rotate(360deg); } }
+  </style>
+  <div id="sk-loading">
+    <img src="favicon.png" alt="Sekouli" />
+    <div class="sk-spin"></div>
+    <p>Chargement du quiz du jour…</p>
+  </div>
+  <script>
+    // Flutter fires this on window once the first frame is painted.
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('sk-loading');
+      if (el) { el.style.transition = 'opacity .25s'; el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 250); }
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
