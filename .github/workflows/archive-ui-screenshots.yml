@@ -1,0 +1,218 @@
+name: Archive legacy Sekouli UI screenshots
+
+on:
+  push:
+    branches: [archive-ui-2026-09-14]
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Serve the exact GitHub build
+        run: |
+          python -m http.server 8000 >/tmp/sekouli-http.log 2>&1 &
+          echo $! > /tmp/sekouli-http.pid
+          sleep 2
+
+      - name: Capture old design
+        run: |
+          cat > /tmp/capture.py <<'PY'
+          import os, re
+          from playwright.sync_api import sync_playwright
+
+          BASE = 'http://127.0.0.1:8000/daily/'
+          OUT = 'legacy-sekouli-ui-2026-09-14'
+          os.makedirs(OUT, exist_ok=True)
+          n = 0
+
+          def wait(page, ms=1600):
+              page.wait_for_timeout(ms)
+
+          def semantics(page):
+              try:
+                  ph = page.locator('flt-semantics-placeholder')
+                  if ph.count():
+                      ph.first.click(force=True, timeout=1200)
+                      page.wait_for_timeout(300)
+              except Exception:
+                  pass
+
+          def shot(page, slug):
+              global n
+              n += 1
+              path = f'{OUT}/{n:02d}_{slug}.png'
+              page.screenshot(path=path)
+              print('SHOT', path)
+
+          def click_text(page, text, exact=False):
+              semantics(page)
+              candidates = [
+                  page.get_by_text(text, exact=exact),
+                  page.get_by_role('button', name=re.compile(re.escape(text), re.I)),
+              ]
+              for loc in candidates:
+                  try:
+                      if loc.count():
+                          loc.last.click(force=True, timeout=2500)
+                          wait(page, 900)
+                          return True
+                  except Exception:
+                      pass
+              print('MISS TEXT', text)
+              return False
+
+          def fresh(page, suffix=''):
+              page.goto(BASE + suffix, wait_until='domcontentloaded', timeout=60000)
+              wait(page, 2800)
+              try:
+                  page.evaluate('localStorage.clear(); sessionStorage.clear();')
+              except Exception:
+                  pass
+              page.goto(BASE + suffix, wait_until='domcontentloaded', timeout=60000)
+              wait(page, 3200)
+              semantics(page)
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              ctx = browser.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=1)
+              page = ctx.new_page()
+
+              # A. Onboarding / anonymous entry
+              fresh(page)
+              shot(page, 'onboarding_bienvenue')
+              click_text(page, 'CP', exact=True)
+              wait(page, 1800)
+              shot(page, 'carte_archipel_CP_depart')
+
+              # Open collection from the map
+              if click_text(page, 'Mes trésors'):
+                  shot(page, 'collection_tresors_vide')
+                  try:
+                      page.keyboard.press('Escape')
+                      wait(page, 500)
+                  except Exception:
+                      pass
+
+              # First quiz island: current island is auto-focused near bottom-center.
+              # Use a few nearby taps because the animated pawn can slightly shift the hit area.
+              opened = False
+              for y in (690, 720, 655):
+                  try:
+                      page.mouse.click(195, y)
+                      wait(page, 1800)
+                      if 'Archipel' not in page.locator('body').inner_text(timeout=1500):
+                          opened = True
+                          break
+                  except Exception:
+                      pass
+              shot(page, 'quiz_ecran_depart')
+              wait(page, 1700)
+              shot(page, 'quiz_question')
+
+              # Try answering visible choices to capture feedback / progression.
+              semantics(page)
+              for _ in range(3):
+                  try:
+                      buttons = page.get_by_role('button')
+                      if buttons.count() > 0:
+                          buttons.last.click(force=True, timeout=1200)
+                          wait(page, 900)
+                  except Exception:
+                      break
+              shot(page, 'quiz_feedback_ou_question_suivante')
+
+              # Return to map if a close/back action is available.
+              try:
+                  page.keyboard.press('Escape')
+                  wait(page, 500)
+              except Exception:
+                  pass
+
+              # B. Parent entry/auth view
+              fresh(page, '?view=parents')
+              shot(page, 'espace_parent_connexion')
+              for label in ('Créer un compte', 'Créer mon compte', 'Inscription'):
+                  if click_text(page, label):
+                      shot(page, 'espace_parent_creation_compte')
+                      break
+
+              # C. Testers workshop — captures the old educational visual language
+              fresh(page, '?ateliers=1')
+              shot(page, 'ateliers_GS_haut')
+              page.mouse.wheel(0, 1150); wait(page, 600)
+              shot(page, 'ateliers_GS_bas_mini_jeux')
+
+              # CP and CE1 listings
+              page.mouse.wheel(0, -2000); wait(page, 400)
+              click_text(page, 'CP', exact=True)
+              shot(page, 'ateliers_CP')
+              click_text(page, 'CE1', exact=True)
+              shot(page, 'ateliers_CE1')
+
+              # D. Chrono disciplines from workshop
+              for label, slug in [
+                  ('Comptage', 'chrono_comptage'),
+                  ('Additions', 'chrono_additions'),
+                  ("L'heure", 'chrono_heure'),
+                  ('Les figures', 'chrono_figures'),
+              ]:
+                  fresh(page, '?ateliers=1')
+                  click_text(page, 'CE1', exact=True)
+                  if click_text(page, label):
+                      shot(page, slug + '_intro')
+                      if click_text(page, "C'est parti") or click_text(page, 'parti'):
+                          wait(page, 1200)
+                          shot(page, slug + '_jeu')
+
+              # E. Gift mini-games — old visuals
+              for label, slug in [
+                  ('Les ballons', 'mini_jeu_ballons'),
+                  ('Les taupes', 'mini_jeu_taupes'),
+                  ('Memory', 'mini_jeu_memory'),
+                  ('Attrape-étoiles', 'mini_jeu_etoiles'),
+              ]:
+                  fresh(page, '?ateliers=1')
+                  page.mouse.wheel(0, 1700); wait(page, 500)
+                  if click_text(page, label):
+                      shot(page, slug)
+
+              # F. GS versions — key comparison point for non-readers
+              fresh(page, '?ateliers=1')
+              click_text(page, 'GS', exact=True)
+              for label, slug in [('Comptage','GS_comptage'), ('Les figures','GS_figures')]:
+                  if click_text(page, label):
+                      shot(page, slug + '_intro')
+                      if click_text(page, "C'est parti") or click_text(page, 'parti'):
+                          wait(page, 1000)
+                          shot(page, slug + '_jeu')
+                      page.go_back(); wait(page, 1600); semantics(page)
+
+              browser.close()
+
+          # Simple manifest for the Drive document / presentation prep.
+          files = sorted(os.listdir(OUT))
+          with open(f'{OUT}/MANIFEST.txt', 'w', encoding='utf-8') as f:
+              f.write('Sekouli — ancien design tel que versionné/déployé dans GitHub\n')
+              f.write('Capture exhaustive orientée démonstration de l’évolution de l’app.\n\n')
+              f.write('\n'.join(files))
+          PY
+          python /tmp/capture.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: legacy-sekouli-ui-2026-09-14
+          path: legacy-sekouli-ui-2026-09-14/
+          if-no-files-found: error
