@@ -71,6 +71,14 @@
       if (el) { el.style.transition = 'opacity .25s'; el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 250); }
     });
   </script>
+  <script>
+    // Production polish: the console stays SILENT for visitors (no framework
+    // chatter, no tech breadcrumbs). Errors still surface; localhost keeps
+    // full logs for development.
+    if (!['localhost', '127.0.0.1'].includes(location.hostname)) {
+      for (var m of ['log', 'info', 'debug', 'warn']) console[m] = function () {};
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
